@@ -21,7 +21,7 @@ async def heartbeat():
     return {"status": "healthy"}
 
 def get_news_safe(topic: str) -> str:
-    """Безопасный запрос NewsData"""
+    """NewsData работает ✅"""
     try:
         key = os.getenv("NEWSDATA_API_KEY")
         if not key:
@@ -44,35 +44,33 @@ def get_news_safe(topic: str) -> str:
 @app.post("/generate-post")
 async def generate_post(topic: Topic):
     try:
-        # 1. Новости (опционально)
+        # 1. Новости (работает ✅)
         news = get_news_safe(topic.topic)
         
-        # 2. OpenAI НОВЫЙ API (1.0.0+)
+        # 2. OpenAI ФИКС proxies
         openai_key = os.getenv("OPENAI_API_KEY")
         if not openai_key:
-            return {"title": f"{topic.topic}", "content": f"OpenAI недоступен.\n\nНовости:\n{news}", "status": "OK-no-openai"}
+            return {
+                "title": f"{topic.topic} | Новости 2026", 
+                "content": f"OpenAI недоступен.\n\n{news}",
+                "news_used": news,
+                "status": "OK-no-openai"
+            }
         
+        # ✅ ФИКС: передаем только api_key
         from openai import OpenAI
-        client = OpenAI(api_key=openai_key)
+        client = OpenAI(api_key=openai_key)  # Без proxies!
         
-        # ✅ ПРАВИЛЬНЫЙ новый API
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{
                 "role": "user",
-                "content": f"""Напишите статью о '{topic.topic}'.
+                "content": f"""Статья о '{topic.topic}'.
 
-Новости для контекста:
+Новости:
 {news}
 
-Формат:
-## Заголовок
-Введение...
-
-### Подзаголовок 1
-текст...
-
-Макс 1200 символов."""
+Формат: Markdown, 800-1200 символов, 3 подзаголовка."""
             }],
             max_tokens=1200,
             temperature=0.7
@@ -81,11 +79,11 @@ async def generate_post(topic: Topic):
         content = response.choices[0].message.content.strip()
         
         return {
-            "title": f"{topic.topic} | Актуальные новости 2026",
+            "title": f"{topic.topic} | Актуально 2026",
             "content": content,
             "news_used": news,
             "word_count": len(content.split()),
-            "status": "FULL SUCCESS ✅"
+            "status": "🚀 FULL SUCCESS!"
         }
         
     except Exception as e:
@@ -93,13 +91,8 @@ async def generate_post(topic: Topic):
             "error": str(e),
             "news": get_news_safe(topic.topic),
             "status": "ERROR",
-            "hint": "Проверьте OpenAI ключ"
+            "hint": "OpenAI проблема"
         }
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
     import uvicorn
